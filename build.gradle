@@ -28,7 +28,7 @@ ext {
     groupId = 'com.appsquare.emily'
     uploadName = 'Emily'
     description = 'An easy-to-use wrapper library for SharedPreferences on Android.'
-    publishVersion = '1.0.0'
+    publishVersion = '1.0.1'
     website = 'https://github.com/szantogab/Emily'
     licences = ['Apache-2.0']
 }

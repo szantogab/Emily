@@ -20,4 +20,12 @@ public @interface LocalStorage {
      * @return Whether the custom objects are cached or not.
      */
     boolean cached() default true;
+
+    /**
+     * @return Whether the custom objects should be fetched in
+     * the constructor or not. Deserialization of custom objects
+     * can be slow, so set this to true if you want to fetch these
+     * objects at constructor time.
+     */
+    boolean preFetch() default true;
 }
