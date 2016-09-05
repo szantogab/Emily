@@ -25,12 +25,8 @@ apply plugin: 'com.neenbedankt.android-apt'
 
 Then you can import this library and use the annotation processor:
 ```gradle
-repositories {
-    maven { url 'https://dl.bintray.com/szantogab/maven' }
-}
-
-compile 'com.appsquare.emily:api:1.0.0'
-apt 'com.appsquare.emily:compiler:1.0.0'
+compile 'com.appsquare.emily:api:1.0.1'
+apt 'com.appsquare.emily:compiler:1.0.1'
 ```
 
 ## Usage
