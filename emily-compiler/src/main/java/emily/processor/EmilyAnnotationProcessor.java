@@ -33,12 +33,15 @@ import emily.LocalStorage;
 import emily.Named;
 import emily.serializer.Serializer;
 
+import static emily.processor.Helper.isSharedPrefPrimitive;
 import static java.util.Collections.singleton;
 import static javax.lang.model.SourceVersion.latestSupported;
 
 @AutoService(Processor.class)
 public class EmilyAnnotationProcessor extends AbstractProcessor {
     public static final String GENERATED_PREFIX = "Emily";
+    public static final String METHOD_CONTEXT = "getContext";
+    public static final String METHOD_SHARED_PREFS = "getSharedPreferences";
 
     private List<String> fields = new ArrayList<>();
 
@@ -107,7 +110,7 @@ public class EmilyAnnotationProcessor extends AbstractProcessor {
 
                     String variableName = getNameFromMethod(executableElement);
 
-                    if (variableName != null) {
+                    if (variableName != null && !methodName.equals(METHOD_CONTEXT) && !methodName.equals(METHOD_SHARED_PREFS)) {
                         TypeMirror typeMirror = getMethodType(executableElement);
                         TypeName typeName = TypeName.get(typeMirror);
 
@@ -123,7 +126,7 @@ public class EmilyAnnotationProcessor extends AbstractProcessor {
                         if (isElementGetter(executableElement)) {
                             generatedClassBuilder.addMethod(generateCodeForGetter(typeName, variableName, executableElement, localStorage.cached()));
 
-                            if (localStorage.preFetch())
+                            if (localStorage.preFetch() && !isSharedPrefPrimitive(typeName))
                                 constructor.addStatement("this.$L = $L()", variableName, executableElement.getSimpleName());
                         } else if (isElementSetter(executableElement)) {
                             generatedClassBuilder.addMethod(generateCodeForSetter(typeName, variableName, executableElement, localStorage.cached()));
@@ -177,11 +180,13 @@ public class EmilyAnnotationProcessor extends AbstractProcessor {
         if (namedAnnotation != null)
             return namedAnnotation.value();
 
-        if (executableElement.getSimpleName().toString().startsWith("get") || executableElement.getSimpleName().toString().startsWith("set"))
-            return executableElement.getSimpleName().toString().substring(3).toLowerCase();
+        String fieldName = executableElement.getSimpleName().toString();
+        if (fieldName.length() > 3 && (fieldName.startsWith("get") || fieldName.startsWith("set"))) {
+            return Helper.toFirstCharLower(fieldName.substring(3));
+        }
 
-        if (executableElement.getSimpleName().toString().startsWith("is"))
-            return executableElement.getSimpleName().toString().substring(2).toLowerCase();
+        if (fieldName.length() > 2 && fieldName.startsWith("is"))
+            return Helper.toFirstCharLower(fieldName.substring(2));
 
         return null;
     }
@@ -242,7 +247,5 @@ public class EmilyAnnotationProcessor extends AbstractProcessor {
         return getterBuilder.build();
     }
 
-    private boolean isSharedPrefPrimitive(TypeName typeName) {
-        return typeName == TypeName.INT || typeName == TypeName.FLOAT || typeName == TypeName.BOOLEAN || typeName == TypeName.LONG || (typeName.toString().equals("java.lang.String"));
-    }
+
 }
