@@ -25,8 +25,8 @@ apply plugin: 'com.neenbedankt.android-apt'
 
 Then you can import this library and use the annotation processor:
 ```gradle
-compile 'com.appsquare.emily:api:1.0.3'
-apt 'com.appsquare.emily:compiler:1.0.3'
+compile 'com.appsquare.emily:api:1.1.0'
+apt 'com.appsquare.emily:compiler:1.1.0'
 ```
 
 ## Usage
@@ -34,7 +34,7 @@ apt 'com.appsquare.emily:compiler:1.0.3'
 First, create an interface where you define the methods and objects you want to save in SharedPref. **Important: you have to follow the getXyz() and setXyz() code style.**
 ```java
 @emily.LocalStorage(cached = true)
-public interface LocalStorage {
+public interface LocalStorage extends BaseLocalStorage {
     // Save the user who logged in to the application
     User getUser();
     void setUser(User user);
@@ -66,6 +66,8 @@ User user = localStorage.getUser();
 
 ...
 ```
+
+You also get the getContext(), save() and clearAllData() methods for free, as long as your LocalStorage interface extends BaseLocalStorage.
 
 ## Contributions
 Please feel free to submit and fix bugs (if you find any), or even make a pull request to Emily. :)
