@@ -39,9 +39,11 @@ import static javax.lang.model.SourceVersion.latestSupported;
 
 @AutoService(Processor.class)
 public class EmilyAnnotationProcessor extends AbstractProcessor {
-    public static final String GENERATED_PREFIX = "Emily";
-    public static final String METHOD_CONTEXT = "getContext";
-    public static final String METHOD_SHARED_PREFS = "getSharedPreferences";
+    private static final String GENERATED_PREFIX = "Emily";
+    private static final String METHOD_CONTEXT = "getContext";
+    private static final String METHOD_CLEAR_ALL_DATA = "clearAllData";
+    private static final String METHOD_SAVE = "save";
+    private static final String METHOD_SHARED_PREFS = "getSharedPreferences";
 
     private List<String> fields = new ArrayList<>();
 
@@ -103,23 +105,52 @@ public class EmilyAnnotationProcessor extends AbstractProcessor {
 
             generatedClassBuilder.addField(contextVariable).addField(sharedPrefVariable).addField(serializer).addMethod(getSharedPrefs).addMethod(getContext);
 
-            for (Element element : annotatedClass.getEnclosedElements()) {
+            MethodSpec.Builder clearAllDataBuilder = MethodSpec.methodBuilder("clearAllData")
+                    .addModifiers(Modifier.PUBLIC);
+
+            MethodSpec.Builder saveBuilder = MethodSpec.methodBuilder("save")
+                    .addModifiers(Modifier.PUBLIC);
+
+            boolean hasClearDataMethod = false, hasSaveMethod = false;
+
+            List<Element> elements = new ArrayList<>();
+            elements.addAll(annotatedClass.getEnclosedElements());
+
+            List<? extends TypeMirror> interfaces = annotatedClass.getInterfaces();
+            if (interfaces != null && interfaces.size() > 0) {
+                TypeElement e = (TypeElement) this.processingEnv.getTypeUtils().asElement(interfaces.get(0));
+                if (e != null)
+                    elements.addAll(e.getEnclosedElements());
+            }
+
+            for (Element element : elements) {
                 if (element instanceof ExecutableElement) {
                     ExecutableElement executableElement = ((ExecutableElement) element);
                     String methodName = executableElement.getSimpleName().toString();
 
+                    if (METHOD_CLEAR_ALL_DATA.equals(methodName))
+                        hasClearDataMethod = true;
+                    else if (METHOD_SAVE.equals(methodName))
+                        hasSaveMethod = true;
+
                     String variableName = getNameFromMethod(executableElement);
 
-                    if (variableName != null && !methodName.equals(METHOD_CONTEXT) && !methodName.equals(METHOD_SHARED_PREFS)) {
+                    if (variableName != null && !methodName.equals(METHOD_CONTEXT) && !methodName.equals(METHOD_SHARED_PREFS) && !methodName.equals(METHOD_CLEAR_ALL_DATA) && !methodName.equals(METHOD_SAVE)) {
                         TypeMirror typeMirror = getMethodType(executableElement);
                         TypeName typeName = TypeName.get(typeMirror);
 
                         if (!fields.contains(variableName)) {
                             fields.add(variableName);
 
-                            if (!isSharedPrefPrimitive(typeName) && localStorage.cached()) {
-                                FieldSpec var = FieldSpec.builder(typeName, variableName, Modifier.PRIVATE).build();
-                                generatedClassBuilder.addField(var);
+                            if (localStorage.cached()) {
+                                if (!isSharedPrefPrimitive(typeName)) {
+                                    FieldSpec var = FieldSpec.builder(typeName, variableName, Modifier.PRIVATE).build();
+                                    generatedClassBuilder.addField(var);
+                                }
+
+                                if (!typeName.isPrimitive() && !isSharedPrefPrimitive(typeName)) {
+                                    clearAllDataBuilder.addStatement("this.$L = null", variableName);
+                                }
                             }
                         }
 
@@ -130,11 +161,22 @@ public class EmilyAnnotationProcessor extends AbstractProcessor {
                                 constructor.addStatement("this.$L = $L()", variableName, executableElement.getSimpleName());
                         } else if (isElementSetter(executableElement)) {
                             generatedClassBuilder.addMethod(generateCodeForSetter(typeName, variableName, executableElement, localStorage.cached()));
+                            if (localStorage.cached() && !isSharedPrefPrimitive(typeName))
+                                saveBuilder.addStatement("$L(this.$L)", methodName, variableName);
                         } else {
                             throw new IllegalArgumentException("Method " + methodName + " is not a getter nor a setter.");
                         }
                     }
                 }
+            }
+
+            if (hasClearDataMethod) {
+                clearAllDataBuilder.addStatement("this.sharedPreferences.edit().clear().apply()");
+                generatedClassBuilder.addMethod(clearAllDataBuilder.build());
+            }
+
+            if (hasSaveMethod) {
+                generatedClassBuilder.addMethod(saveBuilder.build());
             }
 
             generatedClassBuilder.addMethod(constructor.build());
